@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Kubikpreis-Rechner</title>
+
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1976d2">
+<link rel="icon" href="Kubik-Rechner.png">
+
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+    }
+    input, button {
+      margin: 5px 0;
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    .result {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    li button:first-child {
+      flex-grow: 1;
+      text-align: left;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+    }
+    .delete-btn {
+      color: red;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 18px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Kubikpreis-Rechner für Holzarten</h2>
+
+  <h4>1. Neue Holzart speichern</h4>
+  <input type="text" id="holzart" placeholder="Holzart (z.B. Eiche)">
+  <input type="number" id="preis" placeholder="Preis pro m³ (€)" step="0.01">
+  <button onclick="addHolzart()">Holzart hinzufügen</button>
+
+  <h4>2. Holzart auswählen & berechnen</h4>
+  <ul id="holzList"></ul>
+  <div id="auswahlInfo" style="margin-top: 10px; font-weight: bold;"></div>
+
+  <input type="number" id="kubik" placeholder="Menge in m³" step="0.01">
+  <button onclick="berechnePreis()">Preis berechnen</button>
+
+  <div class="result" id="ausgabe"></div>
+
+  <hr>
+  <button onclick="resetSpeicher()" style="background-color: #ffdddd; border: 1px solid red;">Alle Holzarten löschen</button>
+
+  <script>
+    let holzarten = JSON.parse(localStorage.getItem("holzarten")) || [];
+
+    function speichern() {
+      localStorage.setItem("holzarten", JSON.stringify(holzarten));
+    }
+
+    function addHolzart() {
+      const name = document.getElementById("holzart").value.trim();
+      const preis = parseFloat(document.getElementById("preis").value);
+
+      if (!name || isNaN(preis)) {
+        alert("Bitte gültige Holzart und Preis eingeben.");
+        return;
+      }
+
+      holzarten.push({ name, preis });
+      speichern();
+      updateList();
+      document.getElementById("holzart").value = "";
+      document.getElementById("preis").value = "";
+    }
+
+    function updateList() {
+      const list = document.getElementById("holzList");
+      list.innerHTML = "";
+
+      holzarten.forEach((holz, index) => {
+        const item = document.createElement("li");
+
+        const btn = document.createElement("button");
+        btn.textContent = `${holz.name} - ${holz.preis.toFixed(2)} €/m³`;
+        btn.onclick = () => selectHolz(index);
+
+        const del = document.createElement("button");
+        del.innerHTML = "🗑️";
+        del.className = "delete-btn";
+        del.onclick = () => deleteHolz(index);
+
+        item.appendChild(btn);
+        item.appendChild(del);
+        list.appendChild(item);
+      });
+    }
+
+    let selectedIndex = null;
+
+    function selectHolz(index) {
+      selectedIndex = index;
+      const selected = holzarten[index];
+      document.getElementById("auswahlInfo").innerText =
+        `Ausgewählt: ${selected.name} (${selected.preis.toFixed(2)} €/m³)`;
+    }
+
+    function berechnePreis() {
+      const menge = parseFloat(document.getElementById("kubik").value);
+      if (selectedIndex === null || isNaN(menge)) {
+        alert("Bitte Holzart auswählen und Menge eingeben.");
+        return;
+      }
+
+      const preis = holzarten[selectedIndex].preis * menge;
+      document.getElementById("ausgabe").innerText =
+        `Gesamtpreis: ${preis.toFixed(2)} €`;
+    }
+
+    function deleteHolz(index) {
+      if (confirm(`"${holzarten[index].name}" wirklich löschen?`)) {
+        holzarten.splice(index, 1);
+        speichern();
+        updateList();
+        document.getElementById("auswahlInfo").innerText = "";
+        document.getElementById("ausgabe").innerText = "";
+        selectedIndex = null;
+      }
+    }
+
+    function resetSpeicher() {
+      if (confirm("Willst du wirklich alle Holzarten löschen?")) {
+        localStorage.removeItem("holzarten");
+        holzarten = [];
+        updateList();
+        document.getElementById("auswahlInfo").innerText = "";
+        document.getElementById("ausgabe").innerText = "";
+        selectedIndex = null;
+      }
+    }
+
+    window.onload = updateList;
+  </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('Service Worker registriert:', reg))
+      .catch(err => console.error('Service Worker Fehler:', err));
+  }
+</script>
+
+</body>
+</html>
