@@ -1,62 +1,105 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <title>Kubikpreis-Rechner</title>
-
-
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1976d2">
-<link rel="icon" href="icon-512.png">
-
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 600px;
-      margin: auto;
-    }
-    input, button {
-      margin: 5px 0;
-      width: 100%;
-      padding: 8px;
-      box-sizing: border-box;
-    }
-    .result {
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    li button:first-child {
-      flex-grow: 1;
-      text-align: left;
-      background-color: #f0f0f0;
-      border: 1px solid #ccc;
-    }
-    .delete-btn {
-      color: red;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      font-size: 18px;
-      margin-left: 10px;
-    }
-  </style>
-</head>
-<body>
-
+  <!DOCTYPE html>
+  <html lang="de">
+  <head>
+    <meta charset="UTF-8">
+    <title>Kubikpreis-Rechner</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1976d2">
+    <link rel="icon" href="icon-512.png">
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        max-width: 600px;
+        margin: auto;
+        transition: background-color 0.3s, color 0.3s;
+      }
+      body.light {
+        background-color: #ffffff;
+        color: #000000;
+      }
+      body.light input,
+      body.light button {
+        background-color: #f0f0f0;
+        color: #000000;
+      }
+      body.light li button:first-child {
+        background-color: #f0f0f0;
+        color: #000000;
+      }
+      body.dark {
+        background-color: #121212;
+        color: #ffffff;
+      }
+      body.dark input,
+      body.dark button {
+        background-color: #ffffff;
+        color: #000000;
+      }
+      body.dark li button:first-child {
+        background-color: #ffffff;
+        color: #000000;
+      }
+      input, button {
+        margin: 5px 0;
+        width: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+        border: none;
+        border-radius: 6px;
+        transition: background-color 0.2s, color 0.2s;
+      }
+      input::placeholder {
+        color: #666;
+      }
+      button {
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .result {
+        margin-top: 15px;
+        font-weight: bold;
+        color: #4caf50;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .delete-btn {
+        color: #ff4c4c;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 20px;
+        margin-left: 10px;
+      }
+      hr {
+        border: 0;
+        height: 1px;
+        background-color: #333;
+        margin: 20px 0;
+      }
+      .toggle-darkmode {
+        margin-bottom: 15px;
+        background-color: transparent;
+        border: 1px solid currentColor;
+        padding: 8px;
+        border-radius: 6px;
+        width: auto;
+      }
+    </style>
+  </head>
+    <body>
   <h2>Kubikpreis-Rechner für Holzarten</h2>
-
+  <button id="darkModeToggle" class="toggle-darkmode" onclick="toggleDarkMode()">
+    <span id="toggleIcon">🌙</span> <span id="toggleLabel">Dark Mode</span>
+  </button>
   <h4>1. Neue Holzart speichern</h4>
   <input type="text" id="holzart" placeholder="Holzart (z.B. Eiche)">
   <input type="number" id="preis" placeholder="Preis pro m³ (€)" step="0.01">
@@ -67,110 +110,204 @@
   <div id="auswahlInfo" style="margin-top: 10px; font-weight: bold;"></div>
 
   <input type="number" id="kubik" placeholder="Menge in m³" step="0.01">
-  <button onclick="berechnePreis()">Preis berechnen</button>
+  <button onclick="berechnePreisUndMerken()">➕ Berechnen & speichern</button>
 
-  <div class="result" id="ausgabe"></div>
+  <div class="result" id="ausgabe" style="font-size: 1.2em; margin-bottom: 10px;"></div>
+
+  <h4>Zwischengespeicherte Holzarten:</h4>
+  <ul id="merkListe"></ul>
+  <div class="result" id="zwischensummeAnzeigen">Zwischensumme: 0,00 €</div>
+  <div id="positionenAuflistung" style="margin-top: 10px;"></div>
+  <button onclick="alleBerechnungenLoeschen()" style="background-color: #ffdddd; border: 1px solid red;">🗑️ Alles löschen</button>
 
   <hr>
   <button onclick="resetSpeicher()" style="background-color: #ffdddd; border: 1px solid red;">Alle Holzarten löschen</button>
 
-  <script>
-    let holzarten = JSON.parse(localStorage.getItem("holzarten")) || [];
+    <script>
+      let holzarten = JSON.parse(localStorage.getItem("holzarten")) || [];
+      let selectedIndex = null;
+      let berechnungen = JSON.parse(localStorage.getItem("berechnungen")) || [];
 
-    function speichern() {
-      localStorage.setItem("holzarten", JSON.stringify(holzarten));
-    }
-
-    function addHolzart() {
-      const name = document.getElementById("holzart").value.trim();
-      const preis = parseFloat(document.getElementById("preis").value);
-
-      if (!name || isNaN(preis)) {
-        alert("Bitte gültige Holzart und Preis eingeben.");
-        return;
+      function speichern() {
+        localStorage.setItem("holzarten", JSON.stringify(holzarten));
       }
 
-      holzarten.push({ name, preis });
-      speichern();
-      updateList();
-      document.getElementById("holzart").value = "";
-      document.getElementById("preis").value = "";
-    }
-
-    function updateList() {
-      const list = document.getElementById("holzList");
-      list.innerHTML = "";
-
-      holzarten.forEach((holz, index) => {
-        const item = document.createElement("li");
-
-        const btn = document.createElement("button");
-        btn.textContent = `${holz.name} - ${holz.preis.toFixed(2)} €/m³`;
-        btn.onclick = () => selectHolz(index);
-
-        const del = document.createElement("button");
-        del.innerHTML = "🗑️";
-        del.className = "delete-btn";
-        del.onclick = () => deleteHolz(index);
-
-        item.appendChild(btn);
-        item.appendChild(del);
-        list.appendChild(item);
-      });
-    }
-
-    let selectedIndex = null;
-
-    function selectHolz(index) {
-      selectedIndex = index;
-      const selected = holzarten[index];
-      document.getElementById("auswahlInfo").innerText =
-        `Ausgewählt: ${selected.name} (${selected.preis.toFixed(2)} €/m³)`;
-    }
-
-    function berechnePreis() {
-      const menge = parseFloat(document.getElementById("kubik").value);
-      if (selectedIndex === null || isNaN(menge)) {
-        alert("Bitte Holzart auswählen und Menge eingeben.");
-        return;
+      function berechnungenSpeichern() {
+        localStorage.setItem("berechnungen", JSON.stringify(berechnungen));
       }
 
-      const preis = holzarten[selectedIndex].preis * menge;
-      document.getElementById("ausgabe").innerText =
-        `Gesamtpreis: ${preis.toFixed(2)} €`;
-    }
-
-    function deleteHolz(index) {
-      if (confirm(`"${holzarten[index].name}" wirklich löschen?`)) {
-        holzarten.splice(index, 1);
+      function addHolzart() {
+        const name = document.getElementById("holzart").value.trim();
+        const preis = parseFloat(document.getElementById("preis").value);
+        if (!name || isNaN(preis)) {
+          alert("Bitte gültige Holzart und Preis eingeben.");
+          return;
+        }
+        holzarten.push({ name, preis });
         speichern();
         updateList();
-        document.getElementById("auswahlInfo").innerText = "";
-        document.getElementById("ausgabe").innerText = "";
-        selectedIndex = null;
+        document.getElementById("holzart").value = "";
+        document.getElementById("preis").value = "";
       }
-    }
 
-    function resetSpeicher() {
-      if (confirm("Willst du wirklich alle Holzarten löschen?")) {
-        localStorage.removeItem("holzarten");
-        holzarten = [];
-        updateList();
-        document.getElementById("auswahlInfo").innerText = "";
-        document.getElementById("ausgabe").innerText = "";
-        selectedIndex = null;
+      function updateList() {
+        const list = document.getElementById("holzList");
+        list.innerHTML = "";
+        holzarten.forEach((holz, index) => {
+          const item = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.textContent = `${holz.name} - ${holz.preis.toFixed(2)} €/m³`;
+          btn.onclick = () => selectHolz(index);
+          const del = document.createElement("button");
+          del.innerHTML = "🗑️";
+          del.className = "delete-btn";
+          del.onclick = () => deleteHolz(index);
+          item.appendChild(btn);
+          item.appendChild(del);
+          list.appendChild(item);
+        });
       }
-    }
 
-    window.onload = updateList;
-  </script>
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js')
-      .then(reg => console.log('Service Worker registriert:', reg))
-      .catch(err => console.error('Service Worker Fehler:', err));
+      function selectHolz(index) {
+        selectedIndex = index;
+        const selected = holzarten[index];
+        document.getElementById("auswahlInfo").innerText =
+          `Ausgewählt: ${selected.name} (${selected.preis.toFixed(2)} €/m³)`;
+      }
+
+      function berechnePreisUndMerken() {
+  if (selectedIndex === null) {
+    alert("Bitte zuerst eine Holzart auswählen.");
+    return;
   }
-</script>
 
-</body>
-</html>
+  const menge = parseFloat(document.getElementById("kubik").value);
+  if (isNaN(menge) || menge <= 0) {
+    alert("Bitte eine gültige Menge eingeben.");
+    return;
+  }
+
+  const holz = holzarten[selectedIndex];
+  const gesamtpreis = holz.preis * menge;
+
+  berechnungen.push({
+    name: holz.name,
+    menge,
+    einzelpreis: holz.preis,
+    gesamtpreis
+  });
+
+  berechnungenSpeichern(); // Speichern in localStorage
+  updateMerkListe();       // Anzeige aktualisieren
+  updateZwischensumme();   // Zwischensumme aktualisieren
+
+  // Ausgabe sofort sichtbar machen
+  document.getElementById("ausgabe").innerText =
+    `➕ ${holz.name} mit ${menge.toFixed(2)} m³ gespeichert (${gesamtpreis.toFixed(2)} €)`;
+}
+
+
+      function updateMerkListe() {
+        const list = document.getElementById("merkListe");
+        list.innerHTML = "";
+        berechnungen.forEach((eintrag, index) => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <strong>${eintrag.name}</strong><br>
+            ${eintrag.menge.toFixed(2)} m³ × ${eintrag.einzelpreis.toFixed(2)} € = 
+            <strong>${eintrag.gesamtpreis.toFixed(2)} €</strong>
+            <button class="delete-btn" onclick="eintragLoeschen(${index})">🗑️</button>
+          `;
+          list.appendChild(li);
+        });
+      }
+
+      function updateZwischensumme() {
+        const summe = berechnungen.reduce((acc, curr) => acc + curr.gesamtpreis, 0);
+        document.getElementById("zwischensummeAnzeigen").innerText = `Zwischensumme: ${summe.toFixed(2)} €`;
+        const auflistung = berechnungen.map(e =>
+          `- ${e.name}: ${e.menge.toFixed(2)} m³ → ${e.gesamtpreis.toFixed(2)} €`
+        ).join("<br>");
+        document.getElementById("positionenAuflistung").innerHTML = auflistung || "<em>Keine Positionen ausgewählt.</em>";
+      }
+
+      function eintragLoeschen(index) {
+        berechnungen.splice(index, 1);
+        berechnungenSpeichern();
+        updateMerkListe();
+        updateZwischensumme();
+      }
+
+      function alleBerechnungenLoeschen() {
+        if (confirm("Möchtest du alle gemerkten Berechnungen löschen?")) {
+          berechnungen = [];
+          berechnungenSpeichern();
+          updateMerkListe();
+          updateZwischensumme();
+        }
+      }
+
+      function deleteHolz(index) {
+        if (confirm(`"${holzarten[index].name}" wirklich löschen?`)) {
+          holzarten.splice(index, 1);
+          speichern();
+          updateList();
+          document.getElementById("auswahlInfo").innerText = "";
+          document.getElementById("ausgabe").innerText = "";
+          selectedIndex = null;
+        }
+      }
+      
+
+      function resetSpeicher() {
+        if (confirm("Willst du wirklich alle Holzarten löschen?")) {
+          localStorage.removeItem("holzarten");
+          holzarten = [];
+          updateList();
+          document.getElementById("auswahlInfo").innerText = "";
+          document.getElementById("ausgabe").innerText = "";
+          selectedIndex = null;
+        }
+      }
+
+      function toggleDarkMode() {
+        const isDark = document.body.classList.toggle('dark');
+        document.body.classList.toggle('light', !isDark);
+        const icon = document.getElementById('toggleIcon');
+        const label = document.getElementById('toggleLabel');
+        if (isDark) {
+          icon.textContent = '🌞';
+          label.textContent = 'Light Mode';
+        } else {
+          icon.textContent = '🌙';
+          label.textContent = 'Dark Mode';
+        }
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.body.classList.add(savedTheme);
+        document.body.classList.toggle('light', savedTheme !== 'dark');
+        const icon = document.getElementById('toggleIcon');
+        const label = document.getElementById('toggleLabel');
+        if (savedTheme === 'dark') {
+          icon.textContent = '🌞';
+          label.textContent = 'Light Mode';
+        } else {
+          icon.textContent = '🌙';
+          label.textContent = 'Dark Mode';
+        }
+        updateList();
+        updateMerkListe();
+        updateZwischensumme();
+      });
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('service-worker.js')
+          .then(reg => console.log('Service Worker registriert:', reg))
+          .catch(err => console.error('Service Worker Fehler:', err));
+      }
+    </script>
+  </body>
+  </html>
